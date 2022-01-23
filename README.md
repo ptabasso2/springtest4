@@ -16,11 +16,11 @@ git clone https://github.com/ptabasso2/springtest4.git
 </pre>
 
 ### Configure the tracer
-In the `Application` class, we define three beans along with the `@ConditionalOnProperty` which will be used to identify each of the tracers by their type (`tracer.type` property).<br>
+In the `Application` class, we define three beans along with the `@ConditionalOnProperty` which will be used to identify each of the tracers by their type (through the `tracer.type` property).<br>
 
 Three types are available:
 + Jaeger
-+ dd-tracer (This is the Datadog opentracing API (`dd-trace-ot`))
++ dd-tracer (This is the Datadog opentracing SDK (`dd-trace-ot`))
 + dd-java-agent (Tracer that comes with the java agent)
 
 
@@ -44,6 +44,8 @@ COMP10619:~ pejman.tabassomi$ ./gradlew build
 ### Test the application with  Datadog
 
 _1. Start the  Datadog Agent_
+
+Please provide your API key
 <pre style="font-size: 12px">
 COMP10619:~ pejman.tabassomi$ docker run -d --rm -h datadog --name datadog_agent -v /var/run/docker.sock:/var/run/docker.sock:ro -v /proc/:/host/proc/:ro -v /sys/fs/cgroup/:/host/sys/fs/cgroup:ro -p 8126:8126 -p 8125:8125/udp -e DD_API_KEY=xxxxxxxxxxxxxxxxxxxxxxx -e DD_TAGS=env:datadoghq.com -e DD_APM_ENABLED=true -e DD_APM_NON_LOCAL_TRAFFIC=true -e DD_PROCESS_AGENT_ENABLED=true -e DD_LOG_LEVEL=debug gcr.io/datadoghq/agent:7
 </pre>
