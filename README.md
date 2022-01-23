@@ -1,5 +1,5 @@
 
-## Tracer switch example with a Spring Boot application 
+## Manual tracing example based on opentracing with a Spring Boot application 
 
 
 ### Introduction
