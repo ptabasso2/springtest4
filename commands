@@ -1,0 +1,13 @@
+java -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005 -javaagent:./dd-java-agent.jar \
+-Dtracer.type=dd-java-agent -Ddd.service=spring4 -Ddd.env=dev -Ddd.integration.spring-web.enabled=false \
+-Ddd.integration.tomcat.enabled=false  \
+-jar build/libs/springtest4-1.0.jar
+
+java -javaagent:./dd-java-agent.jar \
+-Dtracer.type=dd-java-agent -Ddd.service=spring4 -Ddd.env=dev -Ddd.integration.spring-web.enabled=false \
+-Ddd.integration.tomcat.enabled=false -Ddd.integration.servlet.enabled=false \
+-jar build/libs/springtest4-1.0.jar
+
+java -Dtracer.type=dd-tracer -Ddd.service=spring4 -Ddd.env=dev -jar build/libs/springtest4-1.0.jar
+
+curl localhost:8080/Callme

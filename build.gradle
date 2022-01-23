@@ -1,0 +1,42 @@
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath("org.springframework.boot:spring-boot-gradle-plugin:2.2.2.RELEASE")
+    }
+}
+
+apply plugin: 'java'
+apply plugin: 'idea'
+apply plugin: 'org.springframework.boot'
+apply plugin: 'io.spring.dependency-management'
+
+bootJar {
+    archiveVersion.set("1.0")
+    archiveFileName = "${archiveBaseName.get()}-${archiveVersion.get()}.${archiveExtension.get()}"
+}
+
+repositories {
+    mavenCentral()
+}
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+test {
+    exclude '**/*'
+}
+
+
+
+dependencies {
+    compile("org.springframework.boot:spring-boot-starter-web")
+    implementation group: 'com.datadoghq', name: 'dd-trace-ot', version: '0.90.0'
+    compile 'io.jaegertracing:jaeger-client:0.32.0'
+    compileOnly 'org.projectlombok:lombok:1.18.10'
+    implementation 'org.junit.jupiter:junit-jupiter:5.7.0'
+    annotationProcessor 'org.projectlombok:lombok:1.18.10'
+
+}
+
