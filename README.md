@@ -12,7 +12,7 @@ This allows anyone to have access to the Jaeger tracer or Datadog tracer by conf
 ### Download and install the application
 
 <pre style="font-size: 12px">
-git clone https://github.com/ptabasso2/SpringTest4
+git clone https://github.com/ptabasso2/springtest4.git
 </pre>
 
 ### Configure the tracer
