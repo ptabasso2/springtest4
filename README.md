@@ -64,6 +64,19 @@ Ok
 _3. Check the results in the Datadog UI (APM traces)_<br>
 https://app.datadoghq.com/apm/traces
 
+_4. Using the Java agent_<br>
+
+**Important:** If using the java agent (`dd-java-agent.jar`) , please note that some integrations need to be disabled to avoid span duplication in the generated traces. <br>
+The duplication of spans results from what the java agent produces based on automatic instrumentation and what is done through manual tracing. <br>
+The integrations we are referring to are disabled by setting the following system properties to false (`-Ddd.integration.XXX.enabled=false`)
+
+<pre style="font-size: 12px">
+COMP10619:~ pejman.tabassomi$ java -javaagent:./dd-java-agent.jar \
+-Dtracer.type=dd-java-agent -Ddd.service=spring4 -Ddd.env=dev -Ddd.integration.spring-web.enabled=false \
+-Ddd.integration.tomcat.enabled=false -Ddd.integration.servlet.enabled=false \
+-jar build/libs/springtest4-1.0.jar
+</pre>
+
 
 ### Test the application with Jaeger
 
