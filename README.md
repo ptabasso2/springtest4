@@ -1,156 +1,51 @@
+## Activity #2: Auto-instrumenting the spring boot application
 
-## APM Java lab - the definitive working example showing various techniques to trace a Java example
+### Goal of this activity (`02` branch)
 
-
-### Introduction
-
-The purpose of this lab is to cover various activities around tracing and APM. Each activity of the lab is covered in a dedicated branch.
-The structure is as follows:
-
-main: Vanilla java application consisting of a Spring Boot application that exposes a single endpoint </br>
-02: That section highlights auto-instrumentation done through the use of the java tracer </br>
-03: This section shows a practical example of manual tracing where spans are generated using the java sdk </br>
-04: Example of manual tracing combining the sdk and the java agent (use of the tracer loaded by the java agent) </br>
-05: Manual tracing using the asChildOf() opentracing idiom <br> 
-06: Manual tracing covering inter-processing communication using the tracer.inject()/extract() idioms for context propagation <br> 
-07: Log injection: Automatic instrumentation and trace_id/span_id injection into logs </br>
-
-In each section, we'll describe the various steps to follow in order to reach the goal.
-The activities in this lab follow a logical order so that the solutions of the current activity are available at the beginning of the very next activity.
-For example, the solution of activity 03 is presented at the beginning of activity 04.
-It will serve as the work base for this activity and the instructions described in step 4 will take you to the next stage and so on so forth
+In the previous exercise, we familiarized ourselves with the structure of the application that will be used throughout the lab. <br>
+This section will describe how automatic instrumentation is done using the java agent.
+The instructions for downloading the java agent can be found [here](https://docs.datadoghq.com/tracing/setup_overview/setup/java/?tab=containers#java-installation)
+But this branch actually already contains the agent named `dd-java-agent.jar`
 
 
-### Goal of this activity (`base` branch)
+### Test the application with Datadog
 
-This exercise is only meant to familiarize yourself with the structure of the project (directory structure, file names) but also the steps to follow to build, run and test the application.
-There won't be much change in the code.
+**_1. Start the  Datadog Agent_**
 
-### Clone the repository
+For the sake of simplicity, we will be running the Datadog agent through its containerized version.
+Please provide your API key
 
 <pre style="font-size: 12px">
-COMP10619:~ pejman.tabassomi$ git clone https://github.com/ptabasso2/springtest4.git
+COMP10619:~ pejman.tabassomi$ docker run -d --rm -h datadog --name datadog_agent \ 
+-v /var/run/docker.sock:/var/run/docker.sock:ro \
+-v /proc/:/host/proc/:ro \
+-v /sys/fs/cgroup/:/host/sys/fs/cgroup:ro \
+-p 8126:8126 -p 8125:8125/udp -e DD_API_KEY=xxxxxxxxxxxxxxxxxxxxxxx \
+-e DD_TAGS=env:datadoghq.com -e DD_APM_ENABLED=true \
+-e DD_APM_NON_LOCAL_TRAFFIC=true -e DD_PROCESS_AGENT_ENABLED=true \
+-e DD_LOG_LEVEL=debug gcr.io/datadoghq/agent:7
 </pre>
 
-### Pre-requisites
 
-+ About 15 minutes
-+ A favorite text editor or IDE
-+ JDK 1.8 or later
-+ Gradle 4+ or Maven 3.2+
+**_2. Using the Java agent_<br>**
 
-
-### Directory structure of the project
-
-The example below is the structure after having built the app.
 
 <pre style="font-size: 12px">
-
-COMP10619:SpringTest4 pejman.tabassomi$ tree
-.
-├── README.md
-├── build
-│   ├── classes
-│   │   └── java
-...
-│   ├── generated
-...
-│
-│   ├── libs
-│   │   └── springtest4-1.0.jar
-│   ├── resources
-│   │   └── main
-│   │       └── application.properties
-│   └── tmp
-│       ├── bootJar
-│       │   └── MANIFEST.MF
-│       └── compileJava
-│           └── source-classes-mapping.txt
-├── build.gradle
-├── commands
-├── gradle
-│   └── wrapper
-│       ├── gradle-wrapper.jar
-│       └── gradle-wrapper.properties
-├── gradlew
-├── logs
-│   └── sprinttest4.log
-└── src
-    └── main
-        ├── java
-        │   └── com
-        │       └── datadoghq
-        │           └── pej
-        │               ├── Application.java
-        │               └── BasicController.java
-        └── resources
-            └── application.properties
-
-31 directories, 16 files
-
-</pre>
-
-The main components of this project can be described as follows:
-+ The `src` directory that contains the two class forming our app. The Application class will contain the implementation details to bootstrap the app. It can be seen as the class exposing the main method that will spin up the app. </br>
-  The `BasicController` class will contain the details related to the endpoint that will be exposed. </br> There is also a configuration files that will contain the properties / settings that will be used by the application. </br> In the current version, it contains the logger configuration settings
-+ The `build.gradle` file is the build configuraton file used by gradle.
-+ The `build` directory contains the generated classes and archive file resulting from the compilation/build steps.  
-
-
-### Build the application
-
-<pre style="font-size: 12px">
-COMP10619:~ pejman.tabassomi$ ./gradlew build
-
-Deprecated Gradle features were used in this build, making it incompatible with Gradle 7.0.
-Use '--warning-mode all' to show the individual deprecation warnings.
-See https://docs.gradle.org/6.9.1/userguide/command_line_interface.html#sec:command_line_warnings
-
-BUILD SUCCESSFUL in 1s
-3 actionable tasks: 3 executed
+COMP10619:~ pejman.tabassomi$ java -javaagent:./dd-java-agent.jar \
+-Ddd.service=springtest4 -Ddd.env=dev -Ddd.version=1.0 -Ddd.profiling.enabled=true \
+-XX:FlightRecorderOptions=stackdepth=256 -Ddd.logs.injection=true -Ddd.trace.sample.rate=1
+-jar build/libs/springtest4-1.0.jar
 
 </pre>
 
 
-At this stage, the artifact that will be produced (`springtest4-1.0.jar`) will be placed under the `./build/libs` directory that gets created during the build process.
-
-
-### Run the application
-
-Running the application is fairly simple:
-
-<pre style="font-size: 12px">
-COMP10619:~ pejman.tabassomi$ java -jar build/libs/springtest4-1.0.jar
-
-  .   ____          _            __ _ _
- /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
-( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
- \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
-  '  |____| .__|_| |_|_| |_\__, | / / / /
- =========|_|==============|___/=/_/_/_/
- :: Spring Boot ::        (v2.2.2.RELEASE)
-
-2022-02-06 19:27:12 [main] INFO  com.datadoghq.pej.Application - Starting Application on COMP10619.local with PID 30132 (/Users/pejman.tabassomi/SpringTest4/build/libs/springtest4-1.0.jar started by pejman.tabassomi in /Users/pejman.tabassomi/SpringTest4)
-2022-02-06 19:27:12 [main] INFO  com.datadoghq.pej.Application - No active profile set, falling back to default profiles: default
-2022-02-06 19:27:13 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat initialized with port(s): 8080 (http)
-2022-02-06 19:27:13 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
-2022-02-06 19:27:13 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/9.0.29]
-2022-02-06 19:27:13 [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
-2022-02-06 19:27:13 [main] INFO  o.s.web.context.ContextLoader - Root WebApplicationContext: initialization completed in 914 ms
-2022-02-06 19:27:13 [main] INFO  o.s.s.c.ThreadPoolTaskExecutor - Initializing ExecutorService 'applicationTaskExecutor'
-2022-02-06 19:27:13 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat started on port(s): 8080 (http) with context path ''
-2022-02-06 19:27:13 [main] INFO  com.datadoghq.pej.Application - Started Application in 6.833 seconds (JVM running for 7.26)
-
-</pre>
-
-The application will start a Tomcat server that will load our application that will be listening to connection on port 8080.
-
-
-### Test the application
-
-In another terminal run the following command, you should receive the answer `Ok`
-
+**_3. Run the test several times_**
 <pre style="font-size: 12px">
 COMP10619:~ pejman.tabassomi$ curl localhost:8080/Callme
 Ok
 </pre>
+
+**_4. Check the results in the Datadog UI (APM traces)_<br>**
+https://app.datadoghq.com/apm/traces
+
+
