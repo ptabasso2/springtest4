@@ -1,113 +1,32 @@
-## Activity #3: Manual tracing example
+## Activity #4: Manual tracing using the asChildOf() opentracing idiom
 
-### Goal of this activity (`03` branch)
+### Goal of this activity (`04` branch)
 
-This section shows a practical example of manual tracing where spans are generated using the java sdk.
-In the previous exercise, we familiarized ourselves with automatic instrumentation by using the java agent.
-Now we are going to take a radically different approach and modify our code to control how the spans and traces are generated.
-
+In the previous activity we've been able to successfully instrument our application using the datadog java api and generate spans and traces.
+We've also seen that those spans are linked together following a parent/child dependency pattern.
+In this section we will change our code so that we can explicitly assign the parent span to a given span.
+This is something that may be needed in certain use cases. For example if the application uses multiple threads, we will need to pass the span context across the thread boundaries. 
+The work base for this exercise will be the code state at the end of activity 03 (Cf branch 03s).  
 
 ### Main steps
 
-* Using the sdk and adding it as a dependancy to the project 
-* Instantiate a Tracer
-* Create a simple trace
-* Add metadata and tag our trace
+* Changing the code implementation in order to introducing Opentracing's `asChildOf()` method.
+* This change will occur for the two subsequent spans created for both `doSomeStuff()` and `doSomeOtherStuff()`
+* The `service()` method signature will remain unchanged as it is the parent span for the two other methods. 
+But its implementation will change as the two other method signatures will be modified.
+* The modification will only target the class where spans are created (`BaseController`). 
+The `Application` remains unchanged as this does not impact the tracer instantiation operation.
 
-We are using the following basic features of the OpenTracing API:
-
-* a `tracer` instance is used to create a span builder via `buildSpan()`
-* each `span` is given an _operation name_, `"Service", "doSomeStuff", "doSomeOtherStuff"` in this case
-* builder is used to create a span via `start()`
-* each `span` must be finished by calling its `finish()` function
-* the start and end timestamps of the span will be captured automatically by the tracer implementation
-
-### Adding the sdk to the project
-
-In order to do so, we will simply add the following dependancy to the dependancy bloc of the `build.gradle` file
-`implementation group: 'com.datadoghq', name: 'dd-trace-ot', version: '0.90.0'`
-
-This should look like
-
-```java
-dependencies {
-    compile("org.springframework.boot:spring-boot-starter-web")
-    implementation group: 'com.datadoghq', name: 'dd-trace-ot', version: '0.90.0'
-    compile 'io.jaegertracing:jaeger-client:0.32.0'
-    compileOnly 'org.projectlombok:lombok:1.18.10'
-    implementation 'org.junit.jupiter:junit-jupiter:5.7.0'
-    annotationProcessor 'org.projectlombok:lombok:1.18.10'
-}
-```
-
-### Instantiate a tracer
-
-In order to get an instance of our tracer, we will actually leverage Spring's "dependency injection" capability 
-through which the Spring container “injects” objects into other objects or “dependencies”.
-
-Simply put we will first declare a bean in the `Application` class.
-(This mainly consists of annotating the following method using the `@Bean` annotation).
-This bean will essentially be a method that is going to build a `Tracer` instance.
-
-In doing so, we will be able to refer to that bean anywhere else in our code through the `@Autowired` annotation.
-This annotation allows Spring to resolve and inject collaborating beans into our bean.
-We will actually refer to it later in the `BaseController` class. 
-
-Let's first add the following block in the `Application` class:
-
-```java
-@Bean
-public Tracer ddtracer() {
-    Tracer tracer = new DDTracer.DDTracerBuilder().build();
-    GlobalTracer.registerIfAbsent(tracer);
-    return tracer;
-}
-```
-
-**Note**: At this point, you will also need to consider importing the various classes manually that are needed if you use a Text editor. 
-This is generally handled automatically by IDEs (IntelliJ or Eclipse).
-If you have to do it manually, add the following to the import section of your `Application` class
-
-```java
-import datadog.opentracing.DDTracer;
-import io.opentracing.Tracer;
-import io.opentracing.util.GlobalTracer;
-import org.springframework.context.annotation.Bean;
-```
+  
+### Introducing the `asChildOf()` method.
 
 
-### Creating the traces
+Let's change the implementation details of the `service()` method. 
+This change mainly consists of changing the way `doSomeStuff()` and `doSomeOtherStuff()` are called.
+Their signature will now be changed so that they will take an additional argument that is used to pass the parent span object as follows:
 
-It's time now to build and start spans. We will want to do this in the `BaseController` class.
-Let's first inject the `Tracer` bean.
-This consists of adding these two lines immediately after the Logger instance declaration:
-
-```java
-@Autowired
-private Tracer tracer;
-```
-
-Now that we can access the `Tracer` instance, let's add the tracing idioms in our code:
-We will change the three method implementation as follows:
-
-Example with the `service()` method:
 
 Before
-
-```java
-@RequestMapping("/Callme")
-public String service() throws InterruptedException {
-
-        doSomeStuff("Hello");
-        Thread.sleep(2000L);
-        doSomeOtherStuff( "World!");
-        logger.info("In Service");
-        return "Ok\n";
-
-    }
-```
-
-After
 
 ```java
 @RequestMapping("/Callme")
@@ -121,53 +40,87 @@ public String service() throws InterruptedException {
             doSomeOtherStuff( "World!");
             logger.info("In Service");
         } finally {
-          span.finish();
+            span.finish();
         }
         return "Ok\n";
 
-        }
+}
 ```
 
-**Note**: At this point, you will also need to consider importing the various classes manually that are needed if you use a Text editor.
-This is generally handled _automatically_ by IDEs (IntelliJ or Eclipse).
-If you have to do it manually, add the following to the import section of your `BaseController` class
+After
 
 ```java
-import io.opentracing.Scope;
-import io.opentracing.Span;
-import io.opentracing.Tracer;
-import org.springframework.beans.factory.annotation.Autowired;
+@RequestMapping("/Callme")
+public String service() throws InterruptedException {
+
+        Span span = tracer.buildSpan("Service").start();
+        try (Scope scope = tracer.activateSpan(span)) {
+            span.setTag("customer_id", "45678");
+            doSomeStuff(span, "Hello");
+            Thread.sleep(2000L);
+            doSomeOtherStuff(span, "World!");
+            logger.info("In Service");
+        } finally {
+            span.finish();
+        }
+        return "Ok\n";
+        
+}
 ```
 
 
-**Observations**:
+We are now left with:
+1. Changing the implementation of `doSomeStuff()` and `doSomeOtherStuff()` as each of them will receive the parent span.
+2. Create a span that will be marked as a child using the `asChildOf()` method
 
-+ A span is built and started at the same time. It is being given an _operation name_ `Service`.
-+ We use a `try-with-resource` construct that will be responsible for "auto-closing" the scope object
-+ We are adding a tag `customer-id` to the span by using the `setTag()` method
-+ When all the activities are complete (ex `doSomeStuff()`, `doSomeOtherStuff()` etc...) we need to finish the span explicitly.
 
+Before
+
+```java
+private String doSomeStuff(String somestring) throws InterruptedException {
+
+        String astring;
+        Span span = tracer.buildSpan("doSomeStuff").start();
+        try (Scope scope1 = tracer.activateSpan(span)) {
+            astring = String.format("Hello, %s!", somestring);
+            Thread.sleep(250L);
+            logger.info("In doSomeStuff()");
+        } finally {
+            span.finish();
+        }
+        return astring;
+
+}
+```
+
+After
+
+```java
+private String doSomeStuff(Span parentSpan, String somestring) throws InterruptedException {
+
+        String astring;
+        Span span = tracer.buildSpan("doSomeStuff").asChildOf(parentSpan).start();
+        try (Scope scope1 = tracer.activateSpan(span)) {
+            astring = String.format("Hello, %s!", somestring);
+            Thread.sleep(250L);
+            logger.info("In doSomeStuff()");
+        } finally {
+            span.finish();
+        }
+        return astring;
+
+}
+```
 
 **Exercise**:
 
-Now as an exercise, you will want to apply the same changes to the two other methods `doSomeStuff()`, `doSomeOtherStuff()` 
-1. Choose the operation name such that it gets named after the method name
-2. Add two distinct tags for each of the created spans.
+Now as an exercise, you will want to apply the same changes to the `doSomeOtherStuff()` 
+
 
 **Final remark**:
 
-At this stage, the objective is well achieved, we managed to instrument our application 
-using the instrumentation api and the spans and traces are sent to the backend after 
-having been processed by the Datadog Agent.
-But we have not detailed the points related to the dependency of the spans between them. 
-
-The method calls as we have seen them do induce an implicit dependency link between nested spans.
-Creating and starting a span in the context of an existing span, automatically makes it a child span 
-which then becomes the active span. This has the benefit of simplifying avoiding the hassle of managing the parent/child relationships explicitly.
-
-That said, there can be certain use cases where it can be necessary to explicitly assign a parent to a given span. This is done by using the opentracing `asChildOf()` method.
-We will see an example in the next activity. 
-
+At this stage, the objective is well achieved, we managed to change the implementation of our application 
+This will not change much in the UI when observing the trace layout and comparing it with what was obtained in the previous exercise
 
 
 ### Build the application
