@@ -1,6 +1,6 @@
-## Activity #3: Manual tracing example
+## Activity #5: Passing span instances across threads
 
-### Goal of this activity (`03` branch)
+### Goal of this activity (`05` branch)
 
 This section shows a practical example of manual tracing where spans are generated using the java sdk.
 In the previous exercise, we familiarized ourselves with automatic instrumentation by using the java agent.
