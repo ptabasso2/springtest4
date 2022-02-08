@@ -104,7 +104,7 @@ public String service() throws InterruptedException {
         logger.info("In Service");
         return "Ok\n";
 
-    }
+}
 ```
 
 After
@@ -125,7 +125,7 @@ public String service() throws InterruptedException {
         }
         return "Ok\n";
 
-        }
+}
 ```
 
 **Note**: At this point, you will also need to consider importing the various classes manually that are needed if you use a Text editor.
