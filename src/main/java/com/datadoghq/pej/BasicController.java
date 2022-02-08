@@ -38,7 +38,7 @@ public class BasicController {
 
         String astring;
         Span span = tracer.buildSpan("doSomeStuff").asChildOf(parentSpan).start();
-        try (Scope scope1 = tracer.activateSpan(span)) {
+        try (Scope scope = tracer.activateSpan(span)) {
             astring = String.format("Hello, %s!", somestring);
             Thread.sleep(250L);
             logger.info("In doSomeStuff()");
@@ -51,7 +51,7 @@ public class BasicController {
 
     private void doSomeOtherStuff(Span parentSpan, String somestring) throws InterruptedException {
         Span span = tracer.buildSpan("doSomeOtherStuff").asChildOf(parentSpan).start();
-        try (Scope scope1 = tracer.activateSpan(span)) {
+        try (Scope scope = tracer.activateSpan(span)) {
             Thread.sleep(180L);
             logger.info("In doSomeOtherStuff()");
         } finally {
