@@ -1,172 +1,45 @@
-## Activity #3: Manual tracing example
+## Solution #5: Passing span instances across threads ==== WIP =======
 
-### Goal of this activity (`03` branch)
+### Goal of this activity (`05` branch)
 
-This section shows a practical example of manual tracing where spans are generated using the java sdk.
-In the previous exercise, we familiarized ourselves with automatic instrumentation by using the java agent.
-Now we are going to take a radically different approach and modify our code to control how the spans and traces are generated.
+In the previous activity we introduced the `asChilOf()` method that is meant to assign explicitly a parent span.
+This section will outline a practical use case using `asChildOf()` primitive with multithreaded version of our application.
+We will show how span objects can be passed across thread boundaries and also how asynchronous activities are reflected in traces.
 
 
 ### Main steps
 
-* Using the sdk and adding it as a dependancy to the project 
-* Instantiate a Tracer
-* Create a simple trace
-* Add metadata and tag our trace
-
-We are using the following basic features of the OpenTracing API:
-
-* a `tracer` instance is used to create a span builder via `buildSpan()`
-* each `span` is given an _operation name_, `"Service", "doSomeStuff", "doSomeOtherStuff"` in this case
-* builder is used to create a span via `start()`
-* each `span` must be finished by calling its `finish()` function
-* the start and end timestamps of the span will be captured automatically by the tracer implementation
-
-### Adding the sdk to the project
-
-In order to do so, we will simply add the following dependancy to the dependancy bloc of the `build.gradle` file
-`implementation group: 'com.datadoghq', name: 'dd-trace-ot', version: '0.90.0'`
-
-This should look like
-
-```java
-dependencies {
-    compile("org.springframework.boot:spring-boot-starter-web")
-    implementation group: 'com.datadoghq', name: 'dd-trace-ot', version: '0.90.0'
-    compile 'io.jaegertracing:jaeger-client:0.32.0'
-    compileOnly 'org.projectlombok:lombok:1.18.10'
-    implementation 'org.junit.jupiter:junit-jupiter:5.7.0'
-    annotationProcessor 'org.projectlombok:lombok:1.18.10'
-}
-```
-
-### Instantiate a tracer
-
-In order to get an instance of our tracer, we will actually leverage Spring's "dependency injection" capability 
-through which the Spring container “injects” objects into other objects or “dependencies”.
-
-Simply put we will first declare a bean in the `Application` class.
-(This mainly consists of annotating the following method using the `@Bean` annotation).
-This bean will essentially be a method that is going to build a `Tracer` instance.
-
-In doing so, we will be able to refer to that bean anywhere else in our code through the `@Autowired` annotation.
-This annotation allows Spring to resolve and inject collaborating beans into our bean.
-We will actually refer to it later in the `BaseController` class. 
-
-Let's first add the following block in the `Application` class:
-
-```java
-@Bean
-public Tracer ddtracer() {
-    Tracer tracer = new DDTracer.DDTracerBuilder().build();
-    GlobalTracer.registerIfAbsent(tracer);
-    return tracer;
-}
-```
-
-**Note**: At this point, you will also need to consider importing the various classes manually that are needed if you use a Text editor. 
-This is generally handled automatically by IDEs (IntelliJ or Eclipse).
-If you have to do it manually, add the following to the import section of your `Application` class
-
-```java
-import datadog.opentracing.DDTracer;
-import io.opentracing.Tracer;
-import io.opentracing.util.GlobalTracer;
-import org.springframework.context.annotation.Bean;
-```
+* Adding a thread that will execute a simple activity that will be traced
+* Providing an additional method that will be spun off by the main thread tied to our controller class
 
 
-### Creating the traces
+### Adding a new thread
 
-It's time now to build and start spans. We will want to do this in the `BaseController` class.
-Let's first inject the `Tracer` bean.
-This consists of adding these two lines immediately after the Logger instance declaration:
-
-```java
-@Autowired
-private Tracer tracer;
-```
-
-Now that we can access the `Tracer` instance, let's add the tracing idioms in our code:
-We will change the three method implementation as follows:
-
-Example with the `service()` method:
-
-Before
-
-```java
-@RequestMapping("/Callme")
-public String service() throws InterruptedException {
-
-        doSomeStuff("Hello");
-        Thread.sleep(2000L);
-        doSomeOtherStuff( "World!");
-        logger.info("In Service");
-        return "Ok\n";
-
-    }
-```
-
-After
-
-```java
-@RequestMapping("/Callme")
-public String service() throws InterruptedException {
-
-        Span span = tracer.buildSpan("Service").start();
-        try (Scope scope = tracer.activateSpan(span)) {
-            span.setTag("customer_id", "45678");
-            doSomeStuff("Hello");
-            Thread.sleep(2000L);
-            doSomeOtherStuff( "World!");
-            logger.info("In Service");
-        } finally {
-          span.finish();
-        }
-        return "Ok\n";
-
-        }
-```
-
-**Note**: At this point, you will also need to consider importing the various classes manually that are needed if you use a Text editor.
-This is generally handled _automatically_ by IDEs (IntelliJ or Eclipse).
-If you have to do it manually, add the following to the import section of your `BaseController` class
-
-```java
-import io.opentracing.Scope;
-import io.opentracing.Span;
-import io.opentracing.Tracer;
-import org.springframework.beans.factory.annotation.Autowired;
-```
+### Adding a new methods that will be invoked by one of the two existing methods.
 
 
 **Observations**:
 
-+ A span is built and started at the same time. It is being given an _operation name_ `Service`.
-+ We use a `try-with-resource` construct that will be responsible for "auto-closing" the scope object
-+ We are adding a tag `customer-id` to the span by using the `setTag()` method
-+ When all the activities are complete (ex `doSomeStuff()`, `doSomeOtherStuff()` etc...) we need to finish the span explicitly.
-
 
 **Exercise**:
 
-Now as an exercise, you will want to apply the same changes to the two other methods `doSomeStuff()`, `doSomeOtherStuff()` 
+Now as an exercise, you will want to apply the same changes to the two other methods `doSomeStuff()`, `doSomeOtherStuff()`
 1. Choose the operation name such that it gets named after the method name
 2. Add two distinct tags for each of the created spans.
 
 **Final remark**:
 
-At this stage, the objective is well achieved, we managed to instrument our application 
-using the instrumentation api and the spans and traces are sent to the backend after 
+At this stage, the objective is well achieved, we managed to instrument our application
+using the instrumentation api and the spans and traces are sent to the backend after
 having been processed by the Datadog Agent.
-But we have not detailed the points related to the dependency of the spans between them. 
+But we have not detailed the points related to the dependency of the spans between them.
 
 The method calls as we have seen them do induce an implicit dependency link between nested spans.
-Creating and starting a span in the context of an existing span, automatically makes it a child span 
+Creating and starting a span in the context of an existing span, automatically makes it a child span
 which then becomes the active span. This has the benefit of simplifying avoiding the hassle of managing the parent/child relationships explicitly.
 
 That said, there can be certain use cases where it can be necessary to explicitly assign a parent to a given span. This is done by using the opentracing `asChildOf()` method.
-We will see an example in the next activity. 
+We will see an example in the next activity.
 
 
 
@@ -242,8 +115,8 @@ LOGBACK: No context given for c.q.l.core.rolling.SizeAndTimeBasedRollingPolicy@1
 
 </pre>
 
-Note that the last line refers to the Datadog Tracer with a set of default and provided system properties. 
-The provided ones (service, env, version) where specified above when launching the app.  
+Note that the last line refers to the Datadog Tracer with a set of default and provided system properties.
+The provided ones (service, env, version) where specified above when launching the app.
 
 
 ### Test the application
