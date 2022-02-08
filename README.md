@@ -2,20 +2,95 @@
 
 ### Goal of this activity (`05` branch)
 
-In the previous activity we introduced the `asChilOf()` method that is meant to assign explicitly a parent span.
-This section will outline a practical use case using `asChildOf()` primitive with multithreaded version of our application.
+In the previous activity we introduced the `asChilOf()` method that is meant to assign explicitly a parent span to a given span
+This section will outline a practical use case using `asChildOf()` primitive with a multithreaded version of our application.
 We will show how span objects can be passed across thread boundaries and also how asynchronous activities are reflected in traces.
 
 
 ### Main steps
 
-* Adding a thread that will execute a simple activity that will be traced
 * Providing an additional method that will be spun off by the main thread tied to our controller class
+* Adding a thread that will execute a simple activity that will be traced
 
+### Adding a new method that will be invoked by one of the two existing methods.
+
+First off, let's add a third method that will be used by one of the existing methods. Let's call it `doSomeFinalStuff()`
+Its signature can be similar to the other ones. But it needs at least to have one argument that will receive the span object.
+
+```java
+private void doSomeFinalStuff(Span parentSpan, String somestring) throws InterruptedException {
+        Span span = tracer.buildSpan("doSomeFinalStuff").asChildOf(parentSpan).start();
+        try (Scope scope = tracer.activateSpan(span)) {
+            Thread.sleep(400L);
+            logger.info("In doSomeFinalStuff()");
+        } finally {
+            span.finish();
+        }
+        System.out.println(somestring);
+}
+```
+
+There is nothing much that really differs from the other methods.
 
 ### Adding a new thread
 
-### Adding a new methods that will be invoked by one of the two existing methods.
+This step will involve creating a new thread from within one of the two other methods. Let's say `doSomeOtherStuff()`    
+We will add an anonymous Thread whose sole purpose will be to call the newly created method for which a new span will be generated.
+We will then have to decide which parent span will get assigned to that span. In order to do so we will modify `doSomeOtherStuff()` as follows:
+
+**_Before_**
+
+````java
+
+    private void doSomeOtherStuff(Span parentSpan, String somestring) throws InterruptedException {
+        Span span = tracer.buildSpan("doSomeOtherStuff").asChildOf(parentSpan).start();
+        try (Scope scope = tracer.activateSpan(span)) {
+            logger.info("In doSomeOtherStuff()");
+        } finally {
+            span.finish();
+        }
+        System.out.println(somestring);
+        Thread.sleep(320L);
+    }
+````
+
+**_After_**
+
+```java
+    private void doSomeOtherStuff(Span parentSpan, String somestring) throws InterruptedException {
+        Span span = tracer.buildSpan("doSomeOtherStuff").asChildOf(parentSpan).start();
+        try (Scope scope = tracer.activateSpan(span)) {
+
+            Thread.sleep(180L);
+            new Thread(
+                    new Runnable() {
+                        @SneakyThrows
+                        public void run() {
+                            doSomeFinalStuff(parentSpan, "Bonjour!");
+                        }
+                    }
+            ).start();
+
+            logger.info("In doSomeOtherStuff()");
+        } finally {
+            span.finish();
+        }
+        System.out.println(somestring);
+        Thread.sleep(320L);
+    }
+```
+
+**Note**: At this point, you will also need to consider importing an additional class manually if you use a Text editor.
+This is generally handled automatically by IDEs (IntelliJ or Eclipse).
+If you have to do it manually, add the following to the import section of your `BaseController` class
+
+```java
+import lombok.SneakyThrows;
+```
+
+This allows using the `SneakyThrows` annotation which is a convenience provided by the project lombok.
+It essentially avoids typing extra code, as we would normally need to add a try/catch clauses manually.
+The annotation does that for us.
 
 
 **Observations**:
@@ -23,23 +98,8 @@ We will show how span objects can be passed across thread boundaries and also ho
 
 **Exercise**:
 
-Now as an exercise, you will want to apply the same changes to the two other methods `doSomeStuff()`, `doSomeOtherStuff()`
-1. Choose the operation name such that it gets named after the method name
-2. Add two distinct tags for each of the created spans.
 
 **Final remark**:
-
-At this stage, the objective is well achieved, we managed to instrument our application
-using the instrumentation api and the spans and traces are sent to the backend after
-having been processed by the Datadog Agent.
-But we have not detailed the points related to the dependency of the spans between them.
-
-The method calls as we have seen them do induce an implicit dependency link between nested spans.
-Creating and starting a span in the context of an existing span, automatically makes it a child span
-which then becomes the active span. This has the benefit of simplifying avoiding the hassle of managing the parent/child relationships explicitly.
-
-That said, there can be certain use cases where it can be necessary to explicitly assign a parent to a given span. This is done by using the opentracing `asChildOf()` method.
-We will see an example in the next activity.
 
 
 
