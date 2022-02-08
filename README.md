@@ -1,4 +1,4 @@
-## Solution #4: Manual tracing using the asChildOf() opentracing idiom
+## Solution #4: Manual tracing using the `asChildOf()` opentracing idiom
 
 ### Goal of this activity (`04` branch)
 
@@ -6,11 +6,11 @@ In the previous activity we've been able to successfully instrument our applicat
 We've also seen that those spans are linked together following a parent/child dependency pattern.
 In this section we will change our code so that we can explicitly assign the parent span to a given span.
 This is something that may be needed in certain use cases. For example if the application uses multiple threads, we will need to pass the span context across the thread boundaries.
-The work base for this exercise will be the code state at the end of activity 03 (Cf branch 03s).
+The work base for this exercise will be the code state at the end of activity `03` (Cf branch `03s`).
 
 ### Main steps
 
-* Changing the code implementation in order to introducing Opentracing's `asChildOf()` method.
+* Changing the code implementation in order to introduce Opentracing's `asChildOf()` method.
 * This change will occur for the two subsequent spans created for both `doSomeStuff()` and `doSomeOtherStuff()`
 * The `service()` method signature will remain unchanged as it is the parent span for the two other methods.
   But its implementation will change as the two other method signatures will be modified.
