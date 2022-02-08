@@ -98,23 +98,8 @@ The annotation does that for us.
 
 **Exercise**:
 
-Now as an exercise, you will want to apply the same changes to the two other methods `doSomeStuff()`, `doSomeOtherStuff()` 
-1. Choose the operation name such that it gets named after the method name
-2. Add two distinct tags for each of the created spans.
 
 **Final remark**:
-
-At this stage, the objective is well achieved, we managed to instrument our application 
-using the instrumentation api and the spans and traces are sent to the backend after 
-having been processed by the Datadog Agent.
-But we have not detailed the points related to the dependency of the spans between them. 
-
-The method calls as we have seen them do induce an implicit dependency link between nested spans.
-Creating and starting a span in the context of an existing span, automatically makes it a child span 
-which then becomes the active span. This has the benefit of simplifying avoiding the hassle of managing the parent/child relationships explicitly.
-
-That said, there can be certain use cases where it can be necessary to explicitly assign a parent to a given span. This is done by using the opentracing `asChildOf()` method.
-We will see an example in the next activity. 
 
 
 
