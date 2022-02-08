@@ -4,6 +4,7 @@ import io.opentracing.Span;
 import io.opentracing.Tracer;
 import io.opentracing.Scope;
 
+import lombok.SneakyThrows;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,7 +39,7 @@ public class BasicController {
 
         String astring;
         Span span = tracer.buildSpan("doSomeStuff").asChildOf(parentSpan).start();
-        try (Scope scope1 = tracer.activateSpan(span)) {
+        try (Scope scope = tracer.activateSpan(span)) {
             astring = String.format("Hello, %s!", somestring);
             Thread.sleep(250L);
             logger.info("In doSomeStuff()");
@@ -51,8 +52,18 @@ public class BasicController {
 
     private void doSomeOtherStuff(Span parentSpan, String somestring) throws InterruptedException {
         Span span = tracer.buildSpan("doSomeOtherStuff").asChildOf(parentSpan).start();
-        try (Scope scope1 = tracer.activateSpan(span)) {
+        try (Scope scope = tracer.activateSpan(span)) {
+
             Thread.sleep(180L);
+            new Thread(
+                    new Runnable() {
+                        @SneakyThrows
+                        public void run() {
+                            doSomeFinalStuff(parentSpan, "Bonjour!");
+                        }
+                    }
+            ).start();
+
             logger.info("In doSomeOtherStuff()");
         } finally {
             span.finish();
@@ -61,4 +72,14 @@ public class BasicController {
         Thread.sleep(320L);
     }
 
+    private void doSomeFinalStuff(Span parentSpan, String somestring) throws InterruptedException {
+        Span span = tracer.buildSpan("doSomeFinalStuff").asChildOf(parentSpan).start();
+        try (Scope scope = tracer.activateSpan(span)) {
+            Thread.sleep(400L);
+            logger.info("In doSomeFinalStuff()");
+        } finally {
+            span.finish();
+        }
+        System.out.println(somestring);
+    }
 }
