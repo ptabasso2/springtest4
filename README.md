@@ -26,7 +26,7 @@ This change mainly consists of changing the way `doSomeStuff()` and `doSomeOther
 Their signature will now be changed so that they will take an additional argument that is used to pass the parent span object as follows:
 
 
-Before
+**_Before_**
 
 ```java
 @RequestMapping("/Callme")
@@ -47,7 +47,7 @@ public String service() throws InterruptedException {
 }
 ```
 
-After
+**_After_**
 
 ```java
 @RequestMapping("/Callme")
@@ -74,7 +74,7 @@ We are now left with:
 2. Create a span that will be marked as a child using the `asChildOf()` method
 
 
-Before
+**_Before_**
 
 ```java
 private String doSomeStuff(String somestring) throws InterruptedException {
@@ -93,7 +93,7 @@ private String doSomeStuff(String somestring) throws InterruptedException {
 }
 ```
 
-After
+**_After_**
 
 ```java
 private String doSomeStuff(Span parentSpan, String somestring) throws InterruptedException {
