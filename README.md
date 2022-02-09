@@ -92,7 +92,7 @@ We will change the three method implementation as follows:
 
 Example with the `service()` method:
 
-Before
+**_Before_**
 
 ```java
 @RequestMapping("/Callme")
@@ -107,7 +107,7 @@ public String service() throws InterruptedException {
 }
 ```
 
-After
+**_After_**
 
 ```java
 @RequestMapping("/Callme")
