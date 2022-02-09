@@ -114,7 +114,7 @@ Now you can verify where the span is placed (beneath which span?)
 
 **Final remark**:
 
-This wraps us the discussion around the span dependency structure and the behavioral   
+This wraps up the discussion around the span dependency structure and how asynchronous processing reflects in traces.   
 
 
 ### Build the application
