@@ -13,12 +13,17 @@ For the sake of simplicity we will cover this use case by simply relying on a si
 The first endpoint will be the one hit by the user request. 
 The corresponding method will execute some instructions and will in turn issue the request toward the second endpoint.
 
+In order to do so we will start with a simple implementation in our Controller class: 
+Two spring handlers named `upstream()` and `downstream()` that will be mapping respectively the two endpoints (`/Upstream` and `/Downstream`)
+
+We will then add the necessary code to make the context propagation work. 
+
 ### Main steps
 
-* We will get rid of the methods used until now that would get executed after the endpoint was hit.
-* We will rename the spring handler name from `service()` to `upstream()`
-* Adding a second endpoint inside the sema controller class. Its handler will be named `downstream()`
-* We will add rely on `tracer.inject()/extract()` method invocations to show how context propagation occurs
+* Declaring the `RestTemplate` bean in the `Application` class.
+* Declaring a map structure (`HashMap`) that will hold the ids when invoking the `tracer.inject()` method
+* Declaring a `HttpHeaders` object that will wrap the map above and will be used when issuing the http request through an `HttpEntity` object
+* We will add rely on `tracer.inject()/extract()` method invocations to show how context propagation occurs on both sides 
 
 
 ### Removing methods and adding a new method handler that will be invoked by the first method.
