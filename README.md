@@ -26,99 +26,24 @@ The corresponding method will execute some instructions and will in turn issue t
 We will introduce two new beans of type `HttpServletRequest` and `RestTemplate`.
 They will respectively be used by the second and first methods. 
 `HttpServletRequest` interface is able to allow request information for HTTP Servlets and will be used to extract the header information
-(on the receiving end) that will contain among other headers the `trace_id`, `span_id` values injected by the calling services.
-The exact headers names are these:
+(on the receiving end) that will contain among other headers the `trace_id`, `span_id` values injected by the calling service.
+The exact headers names are:
 
 * `x-datadog-trace-id` 
 * `x-datadog-span-id` 
 * `x-datadog-sampling-priority`
 
 
-There is nothing much that really differs from the other methods.
-
-### Adding a new thread
-
-This step will involve creating a new thread from within one of the two other methods. In our example we will choose `doSomeOtherStuff()`    
-We will add an anonymous Thread whose sole purpose will be to call the newly created method for which a new span will be generated.
-We have to decide which parent span will get assigned to that span. In order to do so we will modify `doSomeOtherStuff()` as follows:
-
-
-**_Before_**
-
-````java
-
-    private void doSomeOtherStuff(Span parentSpan, String somestring) throws InterruptedException {
-        Span span = tracer.buildSpan("doSomeOtherStuff").asChildOf(parentSpan).start();
-        try (Scope scope = tracer.activateSpan(span)) {
-            logger.info("In doSomeOtherStuff()");
-        } finally {
-            span.finish();
-        }
-        System.out.println(somestring);
-        Thread.sleep(320L);
-    }
-````
-
-**_After_**
-
-```java
-    private void doSomeOtherStuff(Span parentSpan, String somestring) throws InterruptedException {
-        Span span = tracer.buildSpan("doSomeOtherStuff").asChildOf(parentSpan).start();
-        try (Scope scope = tracer.activateSpan(span)) {
-
-            Thread.sleep(180L);
-            new Thread(
-                    new Runnable() {
-                        @SneakyThrows
-                        public void run() {
-                            doSomeFinalStuff(parentSpan, "Bonjour!");
-                        }
-                    }
-            ).start();
-
-            logger.info("In doSomeOtherStuff()");
-        } finally {
-            span.finish();
-        }
-        System.out.println(somestring);
-        Thread.sleep(320L);
-    }
-```
-
-
 **Note**: At this point, you will also need to consider importing an additional class manually if you use a Text editor.
 This is generally handled automatically by IDEs (IntelliJ or Eclipse).
 If you have to do it manually, add the following to the import section of your `BaseController` class
 
-```java
-import lombok.SneakyThrows;
-```
-
-This allows using the `SneakyThrows` annotation which is a convenience provided by the project lombok.
-It essentially avoids typing extra code, as we would normally need to add a try/catch clauses manually.
-The annotation does that for us.
-
 
 **Observations**:
 
-* In the above snippet, the `doSomeFinalStuff()` receives a reference to the parent span.
-  Which means that the corresponding span will be designated as a child span of the `"service"` span.
-  And that even though the method that directly spins the thread and call the `doSomeFinalStuff()` is `doSomeOtherStuff()`.
-* Note that in this case, the span is placed immediately beneath its parent and not beneath the one tied to calling method.
-* We introduced a bit of latency time (`Thread.sleep(180L)`) to show a typical behavior observed with async activities:
-  The "thread" span starts almost after the method calling it has ended. And it terminates after the parent span is finished.
-
-
 **Exercise**:
 
-* Change the above behavior by changing the parent span reference: Instead pick the span related to the calling method `doSomeOtherStuff()`.
-  Now you can verify where the span is placed (beneath which span?)
-* Replicate the same thing by adding a thread to the first method so that there are actually two concurrent threads running and called by two different methods.
-* You might also want to change the sleep time duration, for example removing the sleep times or increasing the duration to see how that reflects in the resulting trace.
-
 **Final remark**:
-
-This wraps up the discussion around the span dependency structure and how asynchronous processing reflects in traces.
 
 
 ### Build the application
