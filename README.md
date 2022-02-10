@@ -18,32 +18,39 @@ Two spring handlers named `upstream()` and `downstream()` that will be mapping r
 
 We will then add the necessary code to make the context propagation work. 
 
-### Main steps
+### Observations related to the application
 
-* Declaring the `RestTemplate` bean in the `Application` class.
-* Declaring a map structure (`HashMap`) that will hold the ids when invoking the `tracer.inject()` method
-* Declaring a `HttpHeaders` object that will wrap the map above and will be used when issuing the http request through an `HttpEntity` object
-* We will add rely on `tracer.inject()/extract()` method invocations to show how context propagation occurs on both sides 
+* A `RestTemplate` bean is declared in the `Application` class and will be autowired in the controller class.
+* Another bean `request` of type `HttpServletRequest` is injected in the controller class. 
+The `HttpServletRequest` interface is able to allow request information for HTTP Servlets and will be used to extract the header information
+  (on the receiving end) that will contain among other headers the `trace_id`, `span_id` values injected by the calling service.
+  The exact headers names are:
+
+  * `x-datadog-trace-id`
+  * `x-datadog-span-id`
+  * `x-datadog-sampling-priority` 
+
+* (Note that this one doesn't need to be declared as a bean as it is managed under the hood by the spring framework).
+* We will rely on `tracer.inject()/extract()` method invocations to show how context propagation occurs on both sides
+
+On the Rest client side (Upstream)
+* A map structure `mapinject` (`HashMap` type) that will hold the various headers is declared. There are already two custom headers present as an example. 
+That structure will be reused to add the additional headers (`trace-id`, `span-id` and `sampling-priority-id`) when invoking the `tracer.inject()` method
+* A `HttpHeaders` object that will wrap the map above and that will be used when issuing the http request through an `HttpEntity` object.
+* `RestTemplate`'s `postForEntity()` method is used to execute a POST operation on the `/Downstream` endpoint, while sending headers at the same time.  
+
+On the Rest server side (Downstream)
+* A map structure `mapextract` (`HashMap` type) that will be filled with the headers received from the http request through the `HttpServletRequest` object.
 
 
-### Removing methods and adding a new method handler that will be invoked by the first method.
+### Main steps in this activity
 
-We will introduce two new beans of type `HttpServletRequest` and `RestTemplate`.
-They will respectively be used by the second and first methods. 
-`HttpServletRequest` interface is able to allow request information for HTTP Servlets and will be used to extract the header information
-(on the receiving end) that will contain among other headers the `trace_id`, `span_id` values injected by the calling service.
-The exact headers names are:
-
-* `x-datadog-trace-id` 
-* `x-datadog-span-id` 
-* `x-datadog-sampling-priority`
+* Tracing instructions in both methods: 
+  * The `tracer.inject()` call added inside the `upstream()` method
+  * The `tracer.extract()` call added inside the `downstream()` method
 
 
-**Note**: At this point, you will also need to consider importing an additional class manually if you use a Text editor.
-This is generally handled automatically by IDEs (IntelliJ or Eclipse).
-If you have to do it manually, add the following to the import section of your `BaseController` class
-
-
+    
 **Observations**:
 
 **Exercise**:
