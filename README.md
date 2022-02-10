@@ -1,173 +1,124 @@
-## Activity #3: Manual tracing example
+## Activity #6: Manual tracing covering inter-processing communication using the `tracer.inject()/extract()` idioms for context propagation ==== WIP =======
 
-### Goal of this activity (`03` branch)
+### Goal of this activity (`06` branch)
 
-This section shows a practical example of manual tracing where spans are generated using the java sdk.
-In the previous exercise, we familiarized ourselves with automatic instrumentation by using the java agent.
-Now we are going to take a radically different approach and modify our code to control how the spans and traces are generated.
+So far we have been able to explore the different scenarios that allow us to understand how spans and traces are generated.
+Our code was exposing a single endpoint and will then invoke methods used to outline the tracing techniques.
 
+In ths activity we will focus on inter-process communication and context propagation across services.
+This happens when an upstream service initiates a request that will then be processed by a downstream service.
+
+For the sake of simplicity we will cover this use case by simply relying on a single service that exposes two endpoints 
+(This instead of having two distinct services each exposing a single endpoint). 
+The first endpoint will be the one hit by the user request. 
+The corresponding method will execute some instructions and will in turn issue the request toward the second endpoint.
 
 ### Main steps
 
-* Using the sdk and adding it as a dependancy to the project 
-* Instantiate a Tracer
-* Create a simple trace
-* Add metadata and tag our trace
-
-We are using the following basic features of the OpenTracing API:
-
-* a `tracer` instance is used to create a span builder via `buildSpan()`
-* each `span` is given an _operation name_, `"Service", "doSomeStuff", "doSomeOtherStuff"` in this case
-* builder is used to create a span via `start()`
-* each `span` must be finished by calling its `finish()` function
-* the start and end timestamps of the span will be captured automatically by the tracer implementation
-
-### Adding the sdk to the project
-
-In order to do so, we will simply add the following dependancy to the dependancy bloc of the `build.gradle` file
-`implementation group: 'com.datadoghq', name: 'dd-trace-ot', version: '0.90.0'`
-
-This should look like
-
-```java
-dependencies {
-    compile("org.springframework.boot:spring-boot-starter-web")
-    implementation group: 'com.datadoghq', name: 'dd-trace-ot', version: '0.90.0'
-    compile 'io.jaegertracing:jaeger-client:0.32.0'
-    compileOnly 'org.projectlombok:lombok:1.18.10'
-    implementation 'org.junit.jupiter:junit-jupiter:5.7.0'
-    annotationProcessor 'org.projectlombok:lombok:1.18.10'
-}
-```
-
-### Instantiate a tracer
-
-In order to get an instance of our tracer, we will actually leverage Spring's "dependency injection" capability 
-through which the Spring container “injects” objects into other objects or “dependencies”.
-
-Simply put we will first declare a bean in the `Application` class.
-(This mainly consists of annotating the following method using the `@Bean` annotation).
-This bean will essentially be a method that is going to build a `Tracer` instance.
-
-In doing so, we will be able to refer to that bean anywhere else in our code through the `@Autowired` annotation.
-This annotation allows Spring to resolve and inject collaborating beans into our bean.
-We will actually refer to it later in the `BaseController` class. 
-
-Let's first add the following block in the `Application` class:
-
-```java
-@Bean
-public Tracer ddtracer() {
-    Tracer tracer = new DDTracer.DDTracerBuilder().build();
-    GlobalTracer.registerIfAbsent(tracer);
-    return tracer;
-}
-```
-
-**Note**: At this point, you will also need to consider importing the various classes manually that are needed if you use a Text editor. 
-This is generally handled automatically by IDEs (IntelliJ or Eclipse).
-If you have to do it manually, add the following to the import section of your `Application` class
-
-```java
-import datadog.opentracing.DDTracer;
-import io.opentracing.Tracer;
-import io.opentracing.util.GlobalTracer;
-import org.springframework.context.annotation.Bean;
-```
+* We will get rid of the methods used until now that would get executed after the endpoint was hit.
+* We will rename the spring handler name from `service()` to `upstream()`
+* Adding a second endpoint inside the sema controller class. Its handler will be named `downstream()`
+* We will add rely on `tracer.inject()/extract()` method invocations to show how context propagation occurs
 
 
-### Creating the traces
+### Removing methods and adding a new method handler that will be invoked by the first method.
 
-It's time now to build and start spans. We will want to do this in the `BaseController` class.
-Let's first inject the `Tracer` bean.
-This consists of adding these two lines immediately after the Logger instance declaration:
+We will introduce two new beans of type `HttpServletRequest` and `RestTemplate`.
+They will respectively be used by the second and first methods. 
+`HttpServletRequest` interface is able to allow request information for HTTP Servlets and will be used to extract the header information
+(on the receiving end) that will contain among other headers the `trace_id`, `span_id` values injected by the calling services.
+The exact headers names are these:
 
-```java
-@Autowired
-private Tracer tracer;
-```
+* `x-datadog-trace-id` 
+* `x-datadog-span-id` 
+* `x-datadog-sampling-priority`
 
-Now that we can access the `Tracer` instance, let's add the tracing idioms in our code:
-We will change the three method implementation as follows:
 
-Example with the `service()` method:
+There is nothing much that really differs from the other methods.
+
+### Adding a new thread
+
+This step will involve creating a new thread from within one of the two other methods. In our example we will choose `doSomeOtherStuff()`    
+We will add an anonymous Thread whose sole purpose will be to call the newly created method for which a new span will be generated.
+We have to decide which parent span will get assigned to that span. In order to do so we will modify `doSomeOtherStuff()` as follows:
+
 
 **_Before_**
 
-```java
-@RequestMapping("/Callme")
-public String service() throws InterruptedException {
+````java
 
-        doSomeStuff("Hello");
-        Thread.sleep(2000L);
-        doSomeOtherStuff( "World!");
-        logger.info("In Service");
-        return "Ok\n";
-
-}
-```
+    private void doSomeOtherStuff(Span parentSpan, String somestring) throws InterruptedException {
+        Span span = tracer.buildSpan("doSomeOtherStuff").asChildOf(parentSpan).start();
+        try (Scope scope = tracer.activateSpan(span)) {
+            logger.info("In doSomeOtherStuff()");
+        } finally {
+            span.finish();
+        }
+        System.out.println(somestring);
+        Thread.sleep(320L);
+    }
+````
 
 **_After_**
 
 ```java
-@RequestMapping("/Callme")
-public String service() throws InterruptedException {
-
-        Span span = tracer.buildSpan("Service").start();
+    private void doSomeOtherStuff(Span parentSpan, String somestring) throws InterruptedException {
+        Span span = tracer.buildSpan("doSomeOtherStuff").asChildOf(parentSpan).start();
         try (Scope scope = tracer.activateSpan(span)) {
-            span.setTag("customer_id", "45678");
-            doSomeStuff("Hello");
-            Thread.sleep(2000L);
-            doSomeOtherStuff( "World!");
-            logger.info("In Service");
-        } finally {
-          span.finish();
-        }
-        return "Ok\n";
 
-}
+            Thread.sleep(180L);
+            new Thread(
+                    new Runnable() {
+                        @SneakyThrows
+                        public void run() {
+                            doSomeFinalStuff(parentSpan, "Bonjour!");
+                        }
+                    }
+            ).start();
+
+            logger.info("In doSomeOtherStuff()");
+        } finally {
+            span.finish();
+        }
+        System.out.println(somestring);
+        Thread.sleep(320L);
+    }
 ```
 
-**Note**: At this point, you will also need to consider importing the various classes manually that are needed if you use a Text editor.
-This is generally handled _automatically_ by IDEs (IntelliJ or Eclipse).
+
+**Note**: At this point, you will also need to consider importing an additional class manually if you use a Text editor.
+This is generally handled automatically by IDEs (IntelliJ or Eclipse).
 If you have to do it manually, add the following to the import section of your `BaseController` class
 
 ```java
-import io.opentracing.Scope;
-import io.opentracing.Span;
-import io.opentracing.Tracer;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.SneakyThrows;
 ```
+
+This allows using the `SneakyThrows` annotation which is a convenience provided by the project lombok.
+It essentially avoids typing extra code, as we would normally need to add a try/catch clauses manually.
+The annotation does that for us.
 
 
 **Observations**:
 
-+ A span is built and started at the same time. It is being given an _operation name_ `Service`.
-+ We use a `try-with-resource` construct that will be responsible for "auto-closing" the scope object
-+ We are adding a tag `customer-id` to the span by using the `setTag()` method
-+ When all the activities are complete (ex `doSomeStuff()`, `doSomeOtherStuff()` etc...) we need to finish the span explicitly.
+* In the above snippet, the `doSomeFinalStuff()` receives a reference to the parent span.
+  Which means that the corresponding span will be designated as a child span of the `"service"` span.
+  And that even though the method that directly spins the thread and call the `doSomeFinalStuff()` is `doSomeOtherStuff()`.
+* Note that in this case, the span is placed immediately beneath its parent and not beneath the one tied to calling method.
+* We introduced a bit of latency time (`Thread.sleep(180L)`) to show a typical behavior observed with async activities:
+  The "thread" span starts almost after the method calling it has ended. And it terminates after the parent span is finished.
 
 
 **Exercise**:
 
-Now as an exercise, you will want to apply the same changes to the two other methods `doSomeStuff()`, `doSomeOtherStuff()` 
-1. Choose the operation name such that it gets named after the method name
-2. Add two distinct tags for each of the created spans.
+* Change the above behavior by changing the parent span reference: Instead pick the span related to the calling method `doSomeOtherStuff()`.
+  Now you can verify where the span is placed (beneath which span?)
+* Replicate the same thing by adding a thread to the first method so that there are actually two concurrent threads running and called by two different methods.
+* You might also want to change the sleep time duration, for example removing the sleep times or increasing the duration to see how that reflects in the resulting trace.
 
 **Final remark**:
 
-At this stage, the objective is well achieved, we managed to instrument our application 
-using the instrumentation api and the spans and traces are sent to the backend after 
-having been processed by the Datadog Agent.
-But we have not detailed the points related to the dependency of the spans between them. 
-
-The method calls as we have seen them do induce an implicit dependency link between nested spans.
-Creating and starting a span in the context of an existing span, automatically makes it a child span 
-which then becomes the active span. This has the benefit of simplifying avoiding the hassle of managing the parent/child relationships explicitly.
-
-That said, there can be certain use cases where it can be necessary to explicitly assign a parent to a given span. This is done by using the opentracing `asChildOf()` method.
-We will see an example in the next activity. 
-
+This wraps up the discussion around the span dependency structure and how asynchronous processing reflects in traces.
 
 
 ### Build the application
@@ -242,8 +193,8 @@ LOGBACK: No context given for c.q.l.core.rolling.SizeAndTimeBasedRollingPolicy@1
 
 </pre>
 
-Note that the last line refers to the Datadog Tracer with a set of default and provided system properties. 
-The provided ones (service, env, version) where specified above when launching the app.  
+Note that the last line refers to the Datadog Tracer with a set of default and provided system properties.
+The provided ones (service, env, version) where specified above when launching the app.
 
 
 ### Test the application
