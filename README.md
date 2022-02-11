@@ -1,4 +1,4 @@
-## Solution #6: Manual tracing for inter-process communication and context propagation using the opentracing's tracer.inject()/extract() methods ==== WIP =======
+## Activity #6: Manual tracing for inter-process communication and context propagation using the opentracing's tracer.inject()/extract() methods.
 
 ### Goal of this activity (`06` branch)
 
@@ -137,11 +137,10 @@ import io.opentracing.propagation.TextMapAdapter;
 * (1) We use a span builder and start the span at the same time.
 * (2) In order to maintain the trace context over the process boundaries and remote calls,
   we need a way to propagate the span context over the wire.
-  The OpenTracing API provides two functions in the Tracer interface to do that, `inject(spanContext, format, carrier)` and `extract(format, carrier)`. The `format` parameter refers to one of the three standard encodings (`TEXT_MAP`, `HTTP_HEADERS`, `BINARY`) that define how the span context gets encoded.  
-  In our case this will be `HTTP_HEADERS`
+  The OpenTracing API provides two functions in the Tracer interface to do that, `inject(spanContext, format, carrier)` and `extract(format, carrier)`. The `format` parameter refers to one of the three standard encodings (`TEXT_MAP`, `HTTP_HEADERS`, `BINARY`) that define how the span context gets encoded. In our case this will be `HTTP_HEADERS` format.
 * (2) A Carrier is an interface or data structure that’s useful for inter-process communication (IPC). It “carries” the tracing state from one process to another.
   It allows the tracer to write key-value pairs via `put(key, value)` method for a given format
-* (3) The try-with-resources bloc is used to activate the span and wrap the previous instructions.
+* (3) The `try-with-resources` block is used to activate the span and wrap the previous instructions.
 * (4) The Rest call remains the same, the only difference is that after the`inject()` call in (2), the map now will contain the three additional headers.
 
 
@@ -226,6 +225,10 @@ import io.opentracing.SpanContext;
 * (3) Enclosing the instructions in the block where the span is active.
 
 **Exercise**
+
+* It's about time to leverage some of previous activities. Consider adding methods that can be called from the context of each method and trace them.
+* How about adding async behavior by introducing threads?
+* (Optional) You may want to try accessing external resources like databases or message brokers
 
 **Final remark**
 
