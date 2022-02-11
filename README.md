@@ -110,8 +110,18 @@ On the Rest server side (Downstream)
     }
 ```
 
-* (1) We use a span builder and start the span at the same time.
+**Note**: At this point, you will also need to consider importing additional classes manually if you use a Text editor.
+This is generally handled automatically by IDEs (IntelliJ or Eclipse).
 
+In the `BaseController` class, add the following imports:
+
+```java
+
+```
+
+**Observations**
+
+* (1) We use a span builder and start the span at the same time.
 * (2) In order to maintain the trace context over the process boundaries and remote calls, 
 we need a way to propagate the span context over the wire. 
 The OpenTracing API provides two functions in the Tracer interface to do that, `inject(spanContext, format, carrier)` and `extract(format, carrier)`
@@ -189,14 +199,12 @@ This service does very basic things:
     }
 ```
 
+**Observations**
+* (1) When  
 
+**Exercise**
 
-    
-**Observations**:
-
-**Exercise**:
-
-**Final remark**:
+**Final remark**
 
 
 ### Build the application
