@@ -230,8 +230,6 @@ import io.opentracing.SpanContext;
 * How about adding async behavior by introducing threads?
 * (Optional) You may want to try accessing external resources like databases or message brokers
 
-**Final remark**
-
 
 ### Build the application
 
