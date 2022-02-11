@@ -137,8 +137,7 @@ import io.opentracing.propagation.TextMapAdapter;
 * (1) We use a span builder and start the span at the same time.
 * (2) In order to maintain the trace context over the process boundaries and remote calls, 
 we need a way to propagate the span context over the wire. 
-The OpenTracing API provides two functions in the Tracer interface to do that, `inject(spanContext, format, carrier)` and `extract(format, carrier)`
-The `format` parameter refers to one of the three standard encodings (`TEXT_MAP`, `HTTP_HEADERS`, `BINARY`) that define how the span context gets encoded.  
+The OpenTracing API provides two functions in the Tracer interface to do that, `inject(spanContext, format, carrier)` and `extract(format, carrier)`. The `format` parameter refers to one of the three standard encodings (`TEXT_MAP`, `HTTP_HEADERS`, `BINARY`) that define how the span context gets encoded.  
 In our case this will be `HTTP_HEADERS`
 * (2) A Carrier is an interface or data structure that’s useful for inter-process communication (IPC). It “carries” the tracing state from one process to another. 
 It allows the tracer to write key-value pairs via `put(key, value)` method for a given format
