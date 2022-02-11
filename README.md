@@ -1,4 +1,4 @@
-## Activity #6: Manual tracing for inter-process communication and context propagation using the opentracing's tracer.inject()/extract() methods ==== WIP =======
+## Solution #6: Manual tracing for inter-process communication and context propagation using the opentracing's tracer.inject()/extract() methods ==== WIP =======
 
 ### Goal of this activity (`06` branch)
 
@@ -57,7 +57,7 @@ On the Rest server side (Downstream)
 
 ```java
     @RequestMapping("/Upstream")
-public String service() throws InterruptedException {
+    public String service() throws InterruptedException {
 
         Map<String,String> mapinject=new HashMap<>();
         HttpHeaders headers = new HttpHeaders();
@@ -72,14 +72,14 @@ public String service() throws InterruptedException {
         logger.info("In Upstream");
         return "Ok\n";
 
-        }
+    }
 ```
 
 **_After_**
 
 ```java
     @RequestMapping("/Upstream")
-public String service() throws InterruptedException {
+    public String service() throws InterruptedException {
 
         Map<String,String> mapinject=new HashMap<>();
         HttpHeaders headers = new HttpHeaders();
@@ -87,27 +87,27 @@ public String service() throws InterruptedException {
         mapinject.put("X-Subway-Payment","token");
         mapinject.put("X-Favorite-Food", "pizza");
 
-        (1)       Span span = tracer.buildSpan("Upstream").start();
-        (2)       tracer.inject(span.context(), Format.Builtin.HTTP_HEADERS, new TextMapAdapter(mapinject));
-
+(1)       Span span = tracer.buildSpan("Upstream").start();
+(2)       tracer.inject(span.context(), Format.Builtin.HTTP_HEADERS, new TextMapAdapter(mapinject));
+        
         headers.setAll(mapinject);
 
-        (3)     try (Scope scope = tracer.activateSpan(span)) {
-        span.setTag("service.name", "Upstream");
-        span.setTag("span.type", "web");
-        span.setTag("resource.name", "GET /Upstream");
-        span.setTag("resource", "GET /Upstream");
-        span.setTag("customer_id", "45678");
-        (4)         restTemplate.postForEntity("http://localhost:8080/Downstream", new HttpEntity(headers), String.class).getBody();
-        Thread.sleep(2000L);
-        logger.info("In Upstream");
+(3)     try (Scope scope = tracer.activateSpan(span)) {
+            span.setTag("service.name", "Upstream");
+            span.setTag("span.type", "web");
+            span.setTag("resource.name", "GET /Upstream");
+            span.setTag("resource", "GET /Upstream");
+            span.setTag("customer_id", "45678");
+(4)         restTemplate.postForEntity("http://localhost:8080/Downstream", new HttpEntity(headers), String.class).getBody();
+            Thread.sleep(2000L);
+            logger.info("In Upstream");
         } finally {
-        span.finish();
+            span.finish();
         }
-
+        
         return "Ok\n";
 
-        }
+    }
 ```
 
 **Note**: At this point, you will also need to consider importing additional classes manually if you use a Text editor.
@@ -137,8 +137,7 @@ import io.opentracing.propagation.TextMapAdapter;
 * (1) We use a span builder and start the span at the same time.
 * (2) In order to maintain the trace context over the process boundaries and remote calls,
   we need a way to propagate the span context over the wire.
-  The OpenTracing API provides two functions in the Tracer interface to do that, `inject(spanContext, format, carrier)` and `extract(format, carrier)`
-  The `format` parameter refers to one of the three standard encodings (`TEXT_MAP`, `HTTP_HEADERS`, `BINARY`) that define how the span context gets encoded.  
+  The OpenTracing API provides two functions in the Tracer interface to do that, `inject(spanContext, format, carrier)` and `extract(format, carrier)`. The `format` parameter refers to one of the three standard encodings (`TEXT_MAP`, `HTTP_HEADERS`, `BINARY`) that define how the span context gets encoded.  
   In our case this will be `HTTP_HEADERS`
 * (2) A Carrier is an interface or data structure that’s useful for inter-process communication (IPC). It “carries” the tracing state from one process to another.
   It allows the tracer to write key-value pairs via `put(key, value)` method for a given format
