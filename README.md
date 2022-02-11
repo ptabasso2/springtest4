@@ -7,26 +7,25 @@
 The purpose of this lab is to cover various activities around tracing and APM. Each activity of the lab is covered in a dedicated branch.
 The structure is as follows:
 
-main: Vanilla java application consisting of a Spring Boot application that exposes a single endpoint </br>
+* main: Vanilla java application consisting of a Spring Boot application that exposes a single endpoint </br>
 * 02: That section highlights auto-instrumentation done through the use of the java tracer </br>
 * 03: This section shows a practical example of manual tracing where spans are generated using the java sdk </br>
 * 04: Manual tracing using the `asChildOf()` opentracing idiom <br>
 * 05: Asynchronous activities and tracing across thread boundaries
-* 06: Manual tracing covering inter-processing communication using the `tracer.inject()/extract()` idioms for context propagation <br>
-* 07: Log injection: Automatic instrumentation and trace_id/span_id injection into logs </br>
-* 08: Example of manual tracing combining the sdk and the java agent (use of the tracer loaded by the java agent) </br>
+* 06: Manual tracing covering inter-processing communication using the `tracer.inject()/extract()` methods for context propagation <br>
+* 07: Log injection: Automatic instrumentation and trace_id/span_id injection into logs - WIP - </br>
+* 08: Example of manual tracing combining the sdk and the java agent (use of the tracer loaded by the java agent) - WIP - </br>
 
-In each section, we'll describe the various steps to follow in order to reach the goal.
+In each section, we'll describe the required steps to take in order to reach the goal.
 The activities in this lab follow a logical order so that we can get to the more advanced concepts smoothly.
-When an activity involves code modifications (starting activity 03), the solutions for a given activity are available in the "twin" branch suffixed by 's' (except for activities in the `base` and `02` branches where there is no code change).
-For example, the solution of activity 03 is presented in the branch 03s.
-
+When an activity involves code modifications (starting activity 03), the solutions for a given activity are available in the "twin" branch suffixed by `'s'` (except for activities in the `main` and `02` branches where there is no code change).
+For example, the solution of activity `03` is presented in the branch `03s`.
 
 
 ### Goal of this activity (`base` branch)
 
 This exercise is only meant to familiarize yourself with the structure of the project (directory structure, file names) but also the steps to follow to build, run and test the application.
-There won't be much change in the code.
+There won't be much change in the code. Therefore, no solution branch created.
 
 ### Clone the repository
 
