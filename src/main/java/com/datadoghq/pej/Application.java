@@ -19,7 +19,7 @@ public class Application {
     }
 
     @Bean
-    public Tracer ddtracer() {
+    public Tracer tracer() {
         Tracer tracer = new DDTracer.DDTracerBuilder().build();
         GlobalTracer.registerIfAbsent(tracer);
         return tracer;
