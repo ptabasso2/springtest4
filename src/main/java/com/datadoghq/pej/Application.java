@@ -1,5 +1,8 @@
 package com.datadoghq.pej;
 
+import datadog.opentracing.DDTracer;
+import io.opentracing.Tracer;
+import io.opentracing.util.GlobalTracer;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -21,4 +24,10 @@ public class Application {
         return new RestTemplate();
     }
 
+    @Bean
+    public Tracer tracer() {
+        Tracer tracer = new DDTracer.DDTracerBuilder().build();
+        GlobalTracer.registerIfAbsent(tracer);
+        return tracer;
+    }
 }

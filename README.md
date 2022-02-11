@@ -113,11 +113,24 @@ On the Rest server side (Downstream)
 **Note**: At this point, you will also need to consider importing additional classes manually if you use a Text editor.
 This is generally handled automatically by IDEs (IntelliJ or Eclipse).
 
+In the `Àpplication` class add the following imports:
+
+```java
+import datadog.opentracing.DDTracer;
+import io.opentracing.Tracer;
+import io.opentracing.util.GlobalTracer;
+```
+
 In the `BaseController` class, add the following imports:
 
 ```java
-
+import io.opentracing.Scope;
+import io.opentracing.Span;
+import io.opentracing.Tracer;
+import io.opentracing.propagation.Format;
+import io.opentracing.propagation.TextMapAdapter;
 ```
+
 
 **Observations**
 
@@ -199,8 +212,19 @@ This service does very basic things:
     }
 ```
 
+**Note**: At this point, you will also need to consider importing additional classes manually if you use a Text editor.
+This is generally handled automatically by IDEs (IntelliJ or Eclipse).
+
+In the `BaseController` class, add the following import:
+```java
+import io.opentracing.SpanContext;
+```
+
 **Observations**
-* (1) When  
+* (1) When calling the `extract()` method the `mapextract` map will provide the elements to build the `SpanContext` 
+* (2) From that `SpanContext` we can get a `Span` object that will be marked as a child of the parent span. The parent span was initiated by the http request.
+Therefore the instructions we are going to trace will be associated to this new child span.
+* (3) Enclosing the instructions in the block where the span is active.
 
 **Exercise**
 
