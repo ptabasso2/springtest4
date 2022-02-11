@@ -1,4 +1,4 @@
-## Activity #6: Manual tracing for inter-process communication and context propagation using the opentracing's tracer.inject()/extract() methods ==== WIP =======
+## Solution #6: Manual tracing for inter-process communication and context propagation using the opentracing's tracer.inject()/extract() methods ==== WIP =======
 
 ### Goal of this activity (`06` branch)
 
