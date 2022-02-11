@@ -31,12 +31,10 @@ This should look like
 
 ```java
 dependencies {
-    compile("org.springframework.boot:spring-boot-starter-web")
-    implementation group: 'com.datadoghq', name: 'dd-trace-ot', version: '0.90.0'
-    compile 'io.jaegertracing:jaeger-client:0.32.0'
-    compileOnly 'org.projectlombok:lombok:1.18.10'
-    implementation 'org.junit.jupiter:junit-jupiter:5.7.0'
-    annotationProcessor 'org.projectlombok:lombok:1.18.10'
+        compile("org.springframework.boot:spring-boot-starter-web")
+        implementation group: 'com.datadoghq', name: 'dd-trace-ot', version: '0.90.0'
+        compileOnly 'org.projectlombok:lombok:1.18.10'
+        annotationProcessor 'org.projectlombok:lombok:1.18.10'
 }
 ```
 
