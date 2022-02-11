@@ -1,20 +1,20 @@
-## Activity #6: Manual tracing covering inter-processing communication using the `tracer.inject()/extract()` idioms for context propagation ==== WIP =======
+## Activity #6: Manual tracing for inter-process communication and context propagation using the opentracing's tracer.inject()/extract() methods ==== WIP =======
 
 ### Goal of this activity (`06` branch)
 
-So far we have been able to explore the different scenarios that allow us to understand how spans and traces are generated.
-Our code was exposing a single endpoint and will then invoke methods used to outline the tracing techniques.
+So far we have been able to explore different scenarios that allow us to understand how spans and traces are generated.
+Our code was originally exposing a single endpoint and would then invoke methods to outline various tracing techniques.
 
-In ths activity we will focus on inter-process communication and context propagation across services.
+In ths activity we will focus on **inter-process communication** and **context propagation** across services.
 This happens when an upstream service initiates a request that will then be processed by a downstream service.
 
-For the sake of simplicity we will cover this use case by simply relying on a single service that exposes two endpoints 
-(This instead of having two distinct services each exposing a single endpoint). 
-The first endpoint will be the one hit by the user request. 
+For the sake of simplicity we will address this use case by relying on a single service that exposes two endpoints 
+(Instead of having two distinct services each exposing a single endpoint). 
+The first endpoint will be hit by the user request. 
 The corresponding method will execute some instructions and will in turn issue the request toward the second endpoint.
 
 In order to do so we will start with a simple implementation in our Controller class: 
-Two spring handlers named `upstream()` and `downstream()` that will be mapping respectively the two endpoints (`/Upstream` and `/Downstream`)
+Two spring handlers named `upstream()` and `downstream()` mapping respectively the two endpoints (`/Upstream` and `/Downstream`)
 
 We will then add the necessary code to make the context propagation work. 
 
@@ -30,16 +30,17 @@ The `HttpServletRequest` interface is able to allow request information for HTTP
   * `x-datadog-span-id`
   * `x-datadog-sampling-priority` 
 
-* (Note that this one doesn't need to be declared as a bean as it is managed under the hood by the spring framework).
+(Note that this one doesn't need to be declared as a bean as it is managed under the hood by the spring framework).
 * We will rely on `tracer.inject()/extract()` method invocations to show how context propagation occurs on both sides
 
 On the Rest client side (Upstream)
 * A map structure `mapinject` (`HashMap` type) that will hold the various headers is declared. There are already two custom headers present as an example. 
-That structure will be reused to add the additional headers (`trace-id`, `span-id` and `sampling-priority-id`) when invoking the `tracer.inject()` method
-* A `HttpHeaders` object that will wrap the map above and that will be used when issuing the http request through an `HttpEntity` object.
+That data structure will be reused to add the additional headers (`trace-id`, `span-id` and `sampling-priority-id`) when invoking the `tracer.inject()` method
+* An `HttpHeaders` object that will wrap the map above and that will be used when issuing the http request through an `HttpEntity` object.
 * `RestTemplate`'s `postForEntity()` method is used to execute a POST operation on the `/Downstream` endpoint, while sending headers at the same time.  
 
 On the Rest server side (Downstream)
+
 * A map structure `mapextract` (`HashMap` type) that will be filled with the headers received from the http request through the `HttpServletRequest` object.
 
 
@@ -48,6 +49,146 @@ On the Rest server side (Downstream)
 * Tracing instructions in both methods: 
   * The `tracer.inject()` call added inside the `upstream()` method
   * The `tracer.extract()` call added inside the `downstream()` method
+
+
+### The `upstream()` method
+
+**_Before_**
+
+```java
+    @RequestMapping("/Upstream")
+    public String service() throws InterruptedException {
+
+        Map<String,String> mapinject=new HashMap<>();
+        HttpHeaders headers = new HttpHeaders();
+
+        mapinject.put("X-Subway-Payment","token");
+        mapinject.put("X-Favorite-Food", "pizza");
+        headers.setAll(mapinject);
+
+        restTemplate.postForEntity("http://localhost:8080/Downstream", new HttpEntity<>(headers), String.class).getBody();
+
+        Thread.sleep(2000L);
+        logger.info("In Upstream");
+        return "Ok\n";
+
+    }
+```
+
+**_After_**
+
+```java
+    @RequestMapping("/Upstream")
+    public String service() throws InterruptedException {
+
+        Map<String,String> mapinject=new HashMap<>();
+        HttpHeaders headers = new HttpHeaders();
+
+        mapinject.put("X-Subway-Payment","token");
+        mapinject.put("X-Favorite-Food", "pizza");
+
+(1)       Span span = tracer.buildSpan("Upstream").start();
+(2)       tracer.inject(span.context(), Format.Builtin.HTTP_HEADERS, new TextMapAdapter(mapinject));
+        
+        headers.setAll(mapinject);
+
+(3)     try (Scope scope = tracer.activateSpan(span)) {
+            span.setTag("service.name", "Upstream");
+            span.setTag("span.type", "web");
+            span.setTag("resource.name", "GET /Upstream");
+            span.setTag("resource", "GET /Upstream");
+            span.setTag("customer_id", "45678");
+(4)         restTemplate.postForEntity("http://localhost:8080/Downstream", new HttpEntity(headers), String.class).getBody();
+            Thread.sleep(2000L);
+            logger.info("In Upstream");
+        } finally {
+            span.finish();
+        }
+        
+        return "Ok\n";
+
+    }
+```
+
+* (1) We use a span builder and start the span at the same time.
+
+* (2) In order to maintain the trace context over the process boundaries and remote calls, 
+we need a way to propagate the span context over the wire. 
+The OpenTracing API provides two functions in the Tracer interface to do that, `inject(spanContext, format, carrier)` and `extract(format, carrier)`
+The `format` parameter refers to one of the three standard encodings (`TEXT_MAP`, `HTTP_HEADERS`, `BINARY`) that define how the span context gets encoded.  
+In our case this will be `HTTP_HEADERS`
+* (2) A Carrier is an interface or data structure that’s useful for inter-process communication (IPC). It “carries” the tracing state from one process to another. 
+It allows the tracer to write key-value pairs via `put(key, value)` method for a given format
+* (3) The try-with-resources bloc is used to activate the span and wrap the previous instructions.
+* (4) The Rest call remains the same, the only difference is that after the`inject()` call in (2), the map now will contain the three additional headers.
+
+
+### The `downstream()` method
+
+**_Before_**
+
+```java
+    @RequestMapping("/Downstream")
+    public String downstream() throws InterruptedException {
+
+        Enumeration<String> e = request.getHeaderNames();
+        Map<String, String> mapextract = new HashMap<>();
+
+        while (e.hasMoreElements()) {
+            // add the names of the request headers into the spanMap
+            String key = e.nextElement();
+            String value = request.getHeader(key);
+            mapextract.put(key, value);
+        }
+
+        Thread.sleep(2000L);
+        logger.info("In Downstream");
+
+        return "Ok\n";
+    }
+```
+
+This service does very basic things:
+* It gets the header from the request through an `HttpServletRequest` object.
+* Fills a HashMap that will be reused next to build the span context through the `extract()` method
+* Pause the thread and log some text.
+
+
+**_After_**
+
+
+```java
+    @RequestMapping("/Downstream")
+    public String downstream() throws InterruptedException {
+
+        Enumeration<String> e = request.getHeaderNames();
+        Map<String, String> mapextract = new HashMap<>();
+
+        while (e.hasMoreElements()) {
+            // add the names of the request headers into the spanMap
+            String key = e.nextElement();
+            String value = request.getHeader(key);
+            mapextract.put(key, value);
+        }
+
+(1)     SpanContext parentSpan = tracer.extract(Format.Builtin.HTTP_HEADERS, new TextMapAdapter(mapextract));
+(2)     Span span = tracer.buildSpan("Downstream").asChildOf(parentSpan).start();
+
+(3)     try (Scope scope = tracer.activateSpan(span)) {
+            span.setTag("service.name", "Downstream");
+            span.setTag("span.type", "web");
+            span.setTag("resource.name", "POST /Downstream");
+            span.setTag("resource", "POST /Downstream");
+            span.setTag("customer_id", "45678");
+            Thread.sleep(2000L);
+            logger.info("In Downstream");
+        } finally {
+            span.finish();
+        }
+        return "Ok\n";
+    }
+```
+
 
 
     
