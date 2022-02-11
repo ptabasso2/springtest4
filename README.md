@@ -312,7 +312,7 @@ The provided ones (service, env, version) where specified above when launching t
 In another terminal run the following command, you should receive the answer `Ok`
 
 <pre style="font-size: 12px">
-COMP10619:~ pejman.tabassomi$ curl localhost:8080/Callme
+COMP10619:~ pejman.tabassomi$ curl localhost:8080/Upstream
 Ok
 </pre>
 
