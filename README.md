@@ -1,96 +1,161 @@
 
-## Manual tracing example based on opentracing with a Spring Boot application 
+## APM & tracing lab - the definitive working example showing various techniques to trace a Java application
 
 
 ### Introduction
 
-This is an example of a Spring Boot application where we use Dependency Injection to switch from one tracer implementation to another.<br>
-The goal is to take advantage of the spring framework and define beans for each tracer implementation.<br>
-This allows anyone to have access to the Jaeger tracer or Datadog tracer by configuration without having to rebuild the application
+The purpose of this lab is to cover various activities around tracing and APM. Each activity of the lab is covered in a dedicated branch.
+The structure is as follows:
+
+main: Vanilla java application consisting of a Spring Boot application that exposes a single endpoint </br>
+* 02: That section highlights auto-instrumentation done through the use of the java tracer </br>
+* 03: This section shows a practical example of manual tracing where spans are generated using the java sdk </br>
+* 04: Manual tracing using the `asChildOf()` opentracing idiom <br>
+* 05: Asynchronous activities and tracing across thread boundaries
+* 06: Manual tracing covering inter-processing communication using the `tracer.inject()/extract()` idioms for context propagation <br>
+* 07: Log injection: Automatic instrumentation and trace_id/span_id injection into logs </br>
+* 08: Example of manual tracing combining the sdk and the java agent (use of the tracer loaded by the java agent) </br>
+
+In each section, we'll describe the various steps to follow in order to reach the goal.
+The activities in this lab follow a logical order so that we can get to the more advanced concepts smoothly.
+When an activity involves code modifications (starting activity 03), the solutions for a given activity are available in the "twin" branch suffixed by 's' (except for activities in the `base` and `02` branches where there is no code change).
+For example, the solution of activity 03 is presented in the branch 03s.
 
 
-### Download and install the application
+
+### Goal of this activity (`base` branch)
+
+This exercise is only meant to familiarize yourself with the structure of the project (directory structure, file names) but also the steps to follow to build, run and test the application.
+There won't be much change in the code.
+
+### Clone the repository
 
 <pre style="font-size: 12px">
-git clone https://github.com/ptabasso2/springtest4.git
+COMP10619:~ pejman.tabassomi$ git clone https://github.com/ptabasso2/springtest4.git
 </pre>
 
-### Configure the tracer
-In the `Application` class, we define three beans along with the `@ConditionalOnProperty` which will be used to identify each of the tracers by their type (through the `tracer.type` property).<br>
+### Pre-requisites
 
-Three types are available:
-+ Jaeger
-+ dd-tracer (This is the Datadog opentracing SDK (`dd-trace-ot`))
-+ dd-java-agent (Tracer that comes with the java agent)
++ About 15 minutes
++ A favorite text editor or IDE
++ JDK 1.8 or later
++ Gradle 4+ or Maven 3.2+
 
 
-By setting the value to the desired tracer, the corresponding bean will be picked and auto injected by the spring framework everywhere the `@Autowired` annotation is used inside the application.<br>
-This property can be set either inside the `application.properties` file or as an option to the JVM (system property) or environment variable. <br>
+### Directory structure of the project
 
-Exemple:
+The example below is the structure after having built the app.
+
 <pre style="font-size: 12px">
-java -Dtracer.type=dd-tracer -jar build/libs/springtest4-1.0.jar
+
+COMP10619:SpringTest4 pejman.tabassomi$ tree
+.
+├── README.md
+├── build
+│   ├── classes
+│   │   └── java
+...
+│   ├── generated
+...
+│
+│   ├── libs
+│   │   └── springtest4-1.0.jar
+│   ├── resources
+│   │   └── main
+│   │       └── application.properties
+│   └── tmp
+│       ├── bootJar
+│       │   └── MANIFEST.MF
+│       └── compileJava
+│           └── source-classes-mapping.txt
+├── build.gradle
+├── commands
+├── gradle
+│   └── wrapper
+│       ├── gradle-wrapper.jar
+│       └── gradle-wrapper.properties
+├── gradlew
+├── logs
+│   └── sprinttest4.log
+└── src
+    └── main
+        ├── java
+        │   └── com
+        │       └── datadoghq
+        │           └── pej
+        │               ├── Application.java
+        │               └── BasicController.java
+        └── resources
+            └── application.properties
+
+31 directories, 16 files
+
 </pre>
 
-Important: Jaeger is the **default type** if nothing is specified in the application.properties file or as system property
+The main components of this project can be described as follows:
++ The `src` directory that contains the two class forming our app. The Application class will contain the implementation details to bootstrap the app. It can be seen as the class exposing the main method that will spin up the app. </br>
+  The `BasicController` class will contain the details related to the endpoint that will be exposed. </br> There is also a configuration files that will contain the properties / settings that will be used by the application. </br> In the current version, it contains the logger configuration settings
++ The `build.gradle` file is the build configuraton file used by gradle.
++ The `build` directory contains the generated classes and archive file resulting from the compilation/build steps.
+
 
 ### Build the application
 
 <pre style="font-size: 12px">
 COMP10619:~ pejman.tabassomi$ ./gradlew build
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 7.0.
+Use '--warning-mode all' to show the individual deprecation warnings.
+See https://docs.gradle.org/6.9.1/userguide/command_line_interface.html#sec:command_line_warnings
+
+BUILD SUCCESSFUL in 1s
+3 actionable tasks: 3 executed
+
 </pre>
 
 
-### Test the application with  Datadog
+At this stage, the artifact that will be produced (`springtest4-1.0.jar`) will be placed under the `./build/libs` directory that gets created during the build process.
 
-**_1. Start the  Datadog Agent_**
 
-Please provide your API key
+### Run the application
+
+Running the application is fairly simple:
+
 <pre style="font-size: 12px">
-COMP10619:~ pejman.tabassomi$ docker run -d --rm -h datadog --name datadog_agent -v /var/run/docker.sock:/var/run/docker.sock:ro -v /proc/:/host/proc/:ro -v /sys/fs/cgroup/:/host/sys/fs/cgroup:ro -p 8126:8126 -p 8125:8125/udp -e DD_API_KEY=xxxxxxxxxxxxxxxxxxxxxxx -e DD_TAGS=env:datadoghq.com -e DD_APM_ENABLED=true -e DD_APM_NON_LOCAL_TRAFFIC=true -e DD_PROCESS_AGENT_ENABLED=true -e DD_LOG_LEVEL=debug gcr.io/datadoghq/agent:7
+COMP10619:~ pejman.tabassomi$ java -jar build/libs/springtest4-1.0.jar
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+ :: Spring Boot ::        (v2.2.2.RELEASE)
+
+2022-02-06 19:27:12 [main] INFO  com.datadoghq.pej.Application - Starting Application on COMP10619.local with PID 30132 (/Users/pejman.tabassomi/SpringTest4/build/libs/springtest4-1.0.jar started by pejman.tabassomi in /Users/pejman.tabassomi/SpringTest4)
+2022-02-06 19:27:12 [main] INFO  com.datadoghq.pej.Application - No active profile set, falling back to default profiles: default
+2022-02-06 19:27:13 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat initialized with port(s): 8080 (http)
+2022-02-06 19:27:13 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+2022-02-06 19:27:13 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/9.0.29]
+2022-02-06 19:27:13 [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+2022-02-06 19:27:13 [main] INFO  o.s.web.context.ContextLoader - Root WebApplicationContext: initialization completed in 914 ms
+2022-02-06 19:27:13 [main] INFO  o.s.s.c.ThreadPoolTaskExecutor - Initializing ExecutorService 'applicationTaskExecutor'
+2022-02-06 19:27:13 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat started on port(s): 8080 (http) with context path ''
+2022-02-06 19:27:13 [main] INFO  com.datadoghq.pej.Application - Started Application in 6.833 seconds (JVM running for 7.26)
+
 </pre>
 
-**_2. Run the application_**
-<pre style="font-size: 12px">
-COMP10619:~ pejman.tabassomi$ java -Dtracer.type=dd-tracer -jar build/libs/springtest4-1.0.jar
-</pre>
+The application will start a Tomcat server that will load our application that will be listening to connection on port 8080.
 
-**_3. Run the test several times_** 
+
+### Test the application
+
+In another terminal run the following command, you should receive the answer `Ok`
+
 <pre style="font-size: 12px">
 COMP10619:~ pejman.tabassomi$ curl localhost:8080/Callme
 Ok
 </pre>
 
-**_4. Check the results in the Datadog UI (APM traces)_<br>**
+### Check the results in the Datadog UI (APM traces)
 https://app.datadoghq.com/apm/traces
-
-**_5. Using the Java agent_<br>**
-
-**Important:** If using the java agent (`dd-java-agent.jar`) , please note that some integrations need to be disabled to avoid span duplication in the generated traces. <br>
-The duplication of spans results from what the java agent produces based on automatic instrumentation and what is done through manual tracing. <br>
-The integrations we are referring to are disabled by setting the following system properties to false (`-Ddd.integration.XXX.enabled=false`)
-
-<pre style="font-size: 12px">
-COMP10619:~ pejman.tabassomi$ java -javaagent:./dd-java-agent.jar \
--Dtracer.type=dd-java-agent -Ddd.service=spring4 -Ddd.env=dev -Ddd.integration.spring-web.enabled=false \
--Ddd.integration.tomcat.enabled=false -Ddd.integration.servlet.enabled=false \
--jar build/libs/springtest4-1.0.jar
-</pre>
-
-
-### Test the application with Jaeger
-
-**_1. Start the Jaeger backend_**
-<pre style="font-size: 12px">
-COMP10619:~ pejman.tabassomi$ docker run --rm -p 6831:6831/udp -p 6832:6832/udp -p 16686:16686 jaegertracing/all-in-one:1.7 --log-level=debug
-</pre>
-
-**_2. Run the application_**
-<pre style="font-size: 12px">
-COMP10619:~ pejman.tabassomi$ java -Dtracer.type=jaeger -jar build/libs/springtest4-1.0.jar
-</pre>
-
-**_3. Check the results in the Jaeger UI (APM traces)_<br>**
-http://localhost:16686
-
-
