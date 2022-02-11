@@ -23,7 +23,7 @@ When an activity involves code modifications (starting activity `03`), the solut
 For example, the solution of activity `03` is presented in the branch `03s`.
 
 
-### Goal of this activity (`base` branch)
+### Goal of this activity (`main` branch)
 
 This exercise is only meant to familiarize yourself with the structure of the project (directory structure, file names) but also the steps to follow to build, run and test the application.
 There won't be much change in the code. Therefore, no solution branch created.
