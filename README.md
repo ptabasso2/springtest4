@@ -55,7 +55,7 @@ Let's first add the following block in the `Application` class:
 
 ```java
 @Bean
-public Tracer ddtracer() {
+public Tracer tracer() {
     Tracer tracer = new DDTracer.DDTracerBuilder().build();
     GlobalTracer.registerIfAbsent(tracer);
     return tracer;
