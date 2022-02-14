@@ -13,7 +13,7 @@ The structure is as follows:
 * **04**: Manual tracing using the `asChildOf()` opentracing idiom <br>
 * **05**: Asynchronous activities and tracing across thread boundaries
 * **06**: Manual tracing covering inter-processing communication using the `tracer.inject()/extract()` methods for context propagation <br>
-* **07**: Log injection: Automatic instrumentation and trace_id/span_id injection into logs - **WIP** - </br>
+* **07**: Automatic instrumentation and log injection (`trace_id`/`span_id` injection into logs) - **WIP** - </br>
 * **08**: Manual tracing combining the sdk and the java agent (use of the tracer loaded by the java agent) - **WIP** - </br>
 * **09**: Manual tracing using Jaeger - **WIP** - </br>
 * **10**: Automatic tracing using `-Ddd.trace.methods` vs manual tracing and `@Trace` annotation - **WIP** - </br>
