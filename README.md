@@ -15,6 +15,9 @@ The structure is as follows:
 * **06**: Manual tracing covering inter-processing communication using the `tracer.inject()/extract()` methods for context propagation <br>
 * **07**: Log injection: Automatic instrumentation and trace_id/span_id injection into logs - WIP - </br>
 * **08**: Example of manual tracing combining the sdk and the java agent (use of the tracer loaded by the java agent) - WIP - </br>
+* **09**: Example of manual tracing using Jaeger - WIP - </br>
+* **10**: Example of automatic tracing using `-Ddd.trace.methods` vs manual tracing and `@Trace` annotation - WIP - </br>
+* **11**: Docker and Kubernetes integration - WIP - </br>
 
 In each section, we'll describe the required steps to take in order to reach the goal.
 The activities in this lab follow a logical order so that we can get to the more advanced concepts smoothly.
